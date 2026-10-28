@@ -1,0 +1,253 @@
+================================================================================
+          COMPLETE CI/CD FINAL PROJECT ANTIGRAVITY GUIDE (LOCAL EDITION)
+================================================================================
+Save this content to a text file. It contains every YAML file, terminal command, 
+and artifact-harvesting step needed to complete the project locally.
+
+--------------------------------------------------------------------------------
+1. GITHUB ACTIONS CI WORKFLOW
+--------------------------------------------------------------------------------
+Path: .github/workflows/workflow.yml
+Description: Completes Exercises 1, 2, and 3.
+
+name: CI workflow
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: python:3.9-slim
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          flake8 service --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 service --count --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Run unit tests with nose
+        run: nosetests -v --with-spec --spec-color --with-coverage --cover-package=app
+
+
+--------------------------------------------------------------------------------
+2. TEKTON TASKS (CLEANUP & NOSE)
+--------------------------------------------------------------------------------
+Path: .tekton/tasks.yml
+Description: Completes Exercises 5 and 6.
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cleanup
+spec:
+  description: This task will clean up a workspace by deleting all the files.
+  workspaces:
+    - name: source
+  steps:
+    - name: remove
+      image: alpine:3
+      env:
+        - name: WORKSPACE_SOURCE_PATH
+          value: $(workspaces.source.path)
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+      script: |
+        #!/usr/bin/env sh
+        set -eu
+        echo "Removing all files from ${WORKSPACE_SOURCE_PATH} ..."
+        if [ -d "${WORKSPACE_SOURCE_PATH}" ] ; then
+          rm -rf "${WORKSPACE_SOURCE_PATH:?}"/*
+          rm -rf "${WORKSPACE_SOURCE_PATH}"/.[!.]*
+          rm -rf "${WORKSPACE_SOURCE_PATH}"/..?*
+        fi
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: nose
+spec:
+  workspaces:
+    - name: source
+  params:
+    - name: args
+      description: Arguments to pass to nose
+      type: string
+      default: "-v"
+  steps:
+    - name: nosetests
+      image: python:3.9-slim
+      workingDir: $(workspaces.source.path)
+      script: |
+        #!/bin/bash
+        set -e
+        python -m pip install --upgrade pip wheel
+        pip install -r requirements.txt
+        nosetests $(params.args)
+
+
+--------------------------------------------------------------------------------
+3. OPENSHIFT MAGIC PIPELINE & PVC
+--------------------------------------------------------------------------------
+Path: local-magic.yml (Create this file in your project root)
+Description: Automates Step 3, 4, 5, and 7 without manual GUI drag-and-drop.
+NOTE: Replace "YOUR_GITHUB_ACCOUNT" with your actual GitHub username below.
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oc-lab-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: ci-cd-pipeline
+spec:
+  workspaces:
+    - name: output
+  params:
+    - name: app-name
+      type: string
+      default: "counter-service"
+    - name: build-image
+      type: string
+      default: "image-registry.openshift-image-registry.svc:5000/default/counter-service:latest"
+    - name: repo-url
+      type: string
+      default: "https://github.com/YOUR_GITHUB_ACCOUNT/ci-cd-final-project.git"
+  tasks:
+    - name: cleanup
+      taskRef:
+        name: cleanup
+      workspaces:
+        - name: source
+          workspace: output
+
+    - name: git-clone
+      runAfter:
+        - cleanup
+      taskRef:
+        name: git-clone
+        kind: ClusterTask
+      params:
+        - name: url
+          value: $(params.repo-url)
+      workspaces:
+        - name: output
+          workspace: output
+
+    - name: flake8
+      runAfter:
+        - git-clone
+      taskRef:
+        name: flake8
+        kind: ClusterTask
+      workspaces:
+        - name: source
+          workspace: output
+
+    - name: nose
+      runAfter:
+        - flake8
+      taskRef:
+        name: nose
+      workspaces:
+        - name: source
+          workspace: output
+
+    - name: buildah
+      runAfter:
+        - nose
+      taskRef:
+        name: buildah
+        kind: ClusterTask
+      params:
+        - name: IMAGE
+          value: $(params.build-image)
+      workspaces:
+        - name: source
+          workspace: output
+
+    - name: openshift-client
+      runAfter:
+        - buildah
+      taskRef:
+        name: openshift-client
+        kind: ClusterTask
+      params:
+        - name: SCRIPT
+          value: oc create deployment $(params.app-name) --image=$(params.build-image) --dry-run=client -o yaml | oc apply -f -
+
+
+--------------------------------------------------------------------------------
+4. EXECUTION COMMANDS
+--------------------------------------------------------------------------------
+Run these commands in your terminal from the root of your project directory:
+
+# Phase 1: Local GitHub Actions Check (Ensure Docker Desktop is running)
+act push -j build > cicd-github-validate.txt
+
+# Phase 2: Start Local OpenShift (Ensure CRC is installed)
+crc setup
+crc start
+
+# Phase 3: Login to Local OpenShift (Use password provided by 'crc start')
+oc login -u kubeadmin -p <PASSWORD_FROM_CRC_START> https://api.crc.testing:6443
+
+# (IMPORTANT: Log into OpenShift Console in browser and install 'OpenShift Pipelines' operator first)
+
+# Phase 4: Apply Tekton Tasks and Magic Pipeline
+oc apply -f .tekton/tasks.yml
+oc apply -f local-magic.yml
+
+
+--------------------------------------------------------------------------------
+5. ARTIFACT HARVESTING CHECKLIST
+--------------------------------------------------------------------------------
+Now, go to your local OpenShift Console (URL provided by 'crc start') to capture 
+the final deliverables.
+
+[ ] cicd-github-validate.txt 
+    -> Use the output generated by the `act push` command above.
+
+[ ] oc-pipelines-console-pvc-details.png
+    -> Go to Storage -> PersistentVolumeClaims -> Click 'oc-lab-pvc'. Screenshot.
+
+[ ] oc-pipelines-oc-final.png
+    -> Go to Pipelines -> Pipelines -> Click 'ci-cd-pipeline'. Screenshot the graph.
+
+[ ] oc-pipelines-oc-green.png
+    -> Click 'Start' on the pipeline. Select 'oc-lab-pvc' as the output workspace. 
+    -> Wait for completion. Screenshot the all-green successful run.
+
+[ ] oc-pipeline-app-logs (Text / PNG)
+    -> Go to Workloads -> Pods -> Click 'counter-service'.
+    -> Click 'Logs' tab. Find "SERVICERUNNING". Copy the text or screenshot it.
+
+[ ] Final Push to GitHub:
+    git add -A
+    git commit -m "Final submission artifacts"
+    git push
