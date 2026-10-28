@@ -1,6 +1,8 @@
-# CI/CD Tools and Practices Final Project Template
+# cicd-final-project
 
-This repository contains the template to be used for the Final Project for the Coursera course **CI/CD Tools and Practices**.
+This repository contains the Final Project for the Coursera course **CI/CD Tools and Practices**.
+
+## Project Name: cicd-final-project
 
 ## Usage
 
@@ -8,7 +10,7 @@ This repository is to be used as a template to create your own repository in you
 
 From the GitHub **Code** page, press the green **Use this template** button to create your own repository from this template.
 
-Name your repo: `ci-cd-final-project`.
+Name your repo: `cicd-final-project`.
 
 ## Setup
 
