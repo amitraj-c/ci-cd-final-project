@@ -28,7 +28,8 @@ exit
 
 ## Tasks
 
-
+- GitHub Actions CI Workflow: [.github/workflows/workflow.yml](.github/workflows/workflow.yml) (`https://github.com/amitraj-c/ci-cd-final-project/blob/main/.github/workflows/workflow.yml`)
+- Tekton Tasks: [.tekton/tasks.yml](.tekton/tasks.yml) (`https://github.com/amitraj-c/ci-cd-final-project/blob/main/.tekton/tasks.yml`)
 ## License
 
 Licensed under the Apache License. See [LICENSE](/LICENSE)

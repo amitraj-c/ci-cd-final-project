@@ -1,3 +1,4 @@
+# GitHub URL: https://github.com/amitraj-c/ci-cd-final-project/blob/main/.tekton/tasks.yml
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
@@ -25,6 +26,7 @@ spec:
         rm -rf "${WORKSPACE_SOURCE_PATH}"/.[!.]*
         rm -rf "${WORKSPACE_SOURCE_PATH}"/..?*
 
+# GitHub URL: https://github.com/amitraj-c/ci-cd-final-project/blob/main/.tekton/tasks.yml
 ---
 apiVersion: tekton.dev/v1beta1
 kind: Task
