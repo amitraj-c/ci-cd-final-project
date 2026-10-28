@@ -27,7 +27,7 @@ spec:
       default: "image-registry.openshift-image-registry.svc:5000/default/counter-service:latest"
     - name: repo-url
       type: string
-      default: "https://github.com/amitraj-c/ci-cd-final-project.git"
+      default: "https://github.com/amitraj-c/cicd-final-project.git"
   tasks:
     - name: cleanup
       taskRef:
